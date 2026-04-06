@@ -1,5 +1,3 @@
-# train_transformer.py
-
 import os
 import torch
 import pandas as pd
@@ -14,18 +12,12 @@ from transformers import (
 )
 from sklearn.metrics import accuracy_score, f1_score, confusion_matrix
 
-# ----------------------------
-# Settings
-# ----------------------------
 RESULTS_DIR = "results"
 os.makedirs(RESULTS_DIR, exist_ok=True)
 NUM_LABELS = 4
 MAX_LEN = 128
-DEVICE = torch.device("cpu")  # CPU only
+DEVICE = torch.device("cpu")  
 
-# ----------------------------
-# Load and tokenize dataset
-# ----------------------------
 dataset = load_dataset("ag_news")
 train_split = dataset["train"].train_test_split(test_size=0.1, seed=19)
 train_texts = list(train_split["train"]["text"])
@@ -50,9 +42,6 @@ train_encodings = tokenize(train_texts)
 dev_encodings = tokenize(dev_texts)
 test_encodings = tokenize(test_texts)
 
-# ----------------------------
-# Torch Dataset
-# ----------------------------
 class NewsDataset(torch.utils.data.Dataset):
     def __init__(self, encodings, labels):
         self.encodings = encodings
@@ -68,18 +57,12 @@ train_ds = NewsDataset(train_encodings, train_labels)
 dev_ds = NewsDataset(dev_encodings, dev_labels)
 test_ds = NewsDataset(test_encodings, test_labels)
 
-# ----------------------------
-# Load model
-# ----------------------------
 model = DistilBertForSequenceClassification.from_pretrained(
     "distilbert-base-uncased",
     num_labels=NUM_LABELS
 )
 model.to(DEVICE)
 
-# ----------------------------
-# Training arguments
-# ----------------------------
 training_args = TrainingArguments(
     output_dir=RESULTS_DIR,
     num_train_epochs=3,
@@ -92,9 +75,6 @@ training_args = TrainingArguments(
     disable_tqdm=False,
 )
 
-# ----------------------------
-# Metrics function
-# ----------------------------
 def compute_metrics(pred):
     labels = pred.label_ids
     preds = pred.predictions.argmax(-1)
@@ -102,9 +82,6 @@ def compute_metrics(pred):
     macro_f1 = f1_score(labels, preds, average="macro")
     return {"accuracy": acc, "macro_f1": macro_f1}
 
-# ----------------------------
-# Trainer
-# ----------------------------
 trainer = Trainer(
     model=model,
     args=training_args,
@@ -113,14 +90,8 @@ trainer = Trainer(
     compute_metrics=compute_metrics
 )
 
-# ----------------------------
-# Train
-# ----------------------------
 trainer.train()
 
-# ----------------------------
-# Evaluate on test set
-# ----------------------------
 preds_output = trainer.predict(test_ds)
 test_preds = preds_output.predictions.argmax(-1)
 test_labels_tensor = preds_output.label_ids
@@ -130,9 +101,6 @@ macro_f1 = f1_score(test_labels_tensor, test_preds, average="macro")
 print("\nFINAL TEST RESULTS")
 print(f"Accuracy: {acc:.4f} | Macro-F1: {macro_f1:.4f}")
 
-# ----------------------------
-# Confusion Matrix
-# ----------------------------
 cm = confusion_matrix(test_labels_tensor, test_preds)
 plt.figure(figsize=(6,5))
 sns.heatmap(cm, annot=True, fmt="d",
@@ -145,9 +113,6 @@ plt.tight_layout()
 plt.savefig(f"{RESULTS_DIR}/transformer_confusion_matrix.png")
 plt.close()
 
-# ----------------------------
-# Save misclassified examples
-# ----------------------------
 misclassified = []
 for text, true, pred in zip(test_texts, test_labels_tensor, test_preds):
     if true != pred:
